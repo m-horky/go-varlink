@@ -1,0 +1,39 @@
+name: Certification Tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  client-certification:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main repository
+        uses: actions/checkout@v6
+
+      - name: Check out varlink/python
+        uses: actions/checkout@v6
+        with:
+          repository: varlink/python
+          path: python
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "stable"
+
+      - name: Run client certification
+        run: |
+          cd python
+          python3 -m varlink.tests.test_certification --varlink=tcp:127.0.0.1:12345 &
+          PID=$!
+          cd ..
+          sleep 2
+          SOCKET=127.0.0.1:12345 go run cmd/certification/main.go client
+          kill $PID 2>/dev/null || true
