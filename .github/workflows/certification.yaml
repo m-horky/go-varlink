@@ -38,3 +38,28 @@ jobs:
           done
           go run ./cmd/certification client -protocol tcp -socket 127.0.0.1:12345
           kill $PID 2>/dev/null || true
+
+  server-certification:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main repository
+        uses: actions/checkout@v6
+
+      - name: Check out varlink/python
+        uses: actions/checkout@v6
+        with:
+          repository: varlink/python
+          path: python
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "stable"
+
+      - name: Run server certification
+        run: |
+          go run cmd/certification/*.go server -protocol tcp -socket 127.0.0.1:12345 &
+          PID=$!
+          sleep 5
+          PYTHONPATH=python/ python3 -m varlink.tests.test_certification --client --varlink=tcp:127.0.0.1:12345
+          kill $PID 2>/dev/null || true

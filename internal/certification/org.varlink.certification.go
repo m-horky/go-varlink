@@ -337,9 +337,6 @@ func (h Handler) HandleVarlink(call *govarlink.ServerCall, req *govarlink.Server
 		out, err = h.Backend.End(in)
 	case "org.varlink.certification.Start":
 		in := new(StartIn)
-		if err := json.Unmarshal(req.Parameters, in); err != nil {
-			return err
-		}
 		out, err = h.Backend.Start(in)
 	case "org.varlink.certification.Test01":
 		in := new(Test01In)

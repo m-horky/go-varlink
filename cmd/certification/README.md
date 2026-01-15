@@ -13,3 +13,16 @@ PID=$!
 go run ./cmd/certification client -protocol tcp -socket 127.0.0.1:12345
 kill $PID >/dev/null || true
 ```
+
+## Server certification
+
+```bash
+git clone https://github.com/varlink/python.git
+go run cmd/certification/*.go server -protocol tcp -socket 127.0.0.1:12345 &
+PID=$!
+sleep 2
+cd python
+python3 -m varlink.tests.test_certification --client --varlink=tcp:127.0.0.1:12345
+cd -
+kill $PID >/dev/null || true
+```

@@ -20,6 +20,8 @@ func main() {
 	switch mode {
 	case "client":
 		client(*protocol, *socket)
+	case "server":
+		server(*protocol, *socket)
 	default:
 		log.Fatal("usage: certification [ client | server ] FLAGS")
 	}
