@@ -228,14 +228,16 @@ func main() {
 	for _, name := range methodNames {
 		methodCases = append(methodCases, jen.Case(jen.Lit(iface.Name+"."+name)).Block(
 			jen.Id("in").Op(":=").New(jen.Id(name+"In")),
-			jen.If(
-				jen.Id("err").Op(":=").Qual("encoding/json", "Unmarshal").Call(
-					jen.Id("req.Parameters"),
-					jen.Id("in"),
+			jen.If(jen.Len(jen.Id("req.Parameters")).Op(">").Lit(0)).Block(
+				jen.If(
+					jen.Id("err").Op(":=").Qual("encoding/json", "Unmarshal").Call(
+						jen.Id("req.Parameters"),
+						jen.Id("in"),
+					),
+					jen.Id("err").Op("!=").Nil(),
+				).Block(
+					jen.Return().Id("err"),
 				),
-				jen.Id("err").Op("!=").Nil(),
-			).Block(
-				jen.Return().Id("err"),
 			),
 			jen.List(jen.Id("out"), jen.Id("err")).Op("=").Id("h").Dot("Backend").Dot(name).Call(jen.Id("in")),
 		))
