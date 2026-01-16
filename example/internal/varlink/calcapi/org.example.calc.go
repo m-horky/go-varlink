@@ -97,18 +97,14 @@ func (h Handler) HandleVarlink(call *govarlink.ServerCall, req *govarlink.Server
 	switch req.Method {
 	case "org.example.calc.Divide":
 		in := new(DivideIn)
-		if len(req.Parameters) > 0 {
-			if err := json.Unmarshal(req.Parameters, in); err != nil {
-				return err
-			}
+		if err := json.Unmarshal(req.Parameters, in); err != nil {
+			return err
 		}
 		out, err = h.Backend.Divide(in)
 	case "org.example.calc.Multiply":
 		in := new(MultiplyIn)
-		if len(req.Parameters) > 0 {
-			if err := json.Unmarshal(req.Parameters, in); err != nil {
-				return err
-			}
+		if err := json.Unmarshal(req.Parameters, in); err != nil {
+			return err
 		}
 		out, err = h.Backend.Multiply(in)
 	default:

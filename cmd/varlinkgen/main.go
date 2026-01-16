@@ -110,7 +110,10 @@ func main() {
 	for _, name := range methodNames {
 		method := iface.Methods[name]
 
-		f.Type().Id(name + "In").Add(genStruct(method.In))
+		// Only generate In struct if method has parameters
+		if len(method.In) > 0 {
+			f.Type().Id(name + "In").Add(genStruct(method.In))
+		}
 		f.Type().Id(name + "Out").Add(genStruct(method.Out))
 		f.Line()
 	}
@@ -159,37 +162,61 @@ func main() {
 	)
 
 	for _, name := range methodNames {
-		f.Func().Params(
-			jen.Id("c").Id("Client"),
-		).Id(name).Params(
-			jen.Id("in").Op("*").Id(name+"In"),
-		).Params(
-			jen.Op("*").Id(name+"Out"),
-			jen.Id("error"),
-		).Block(
-			jen.If(jen.Id("in").Op("==").Nil()).Block(
-				jen.Id("in").Op("=").New(jen.Id(name+"In")),
-			),
-			jen.Id("out").Op(":=").New(jen.Id(name+"Out")),
-			jen.Id("err").Op(":=").Id("c").Dot("Client").Dot("Do").Call(
-				jen.Lit(iface.Name+"."+name),
-				jen.Id("in"),
-				jen.Id("out"),
-			),
+		method := iface.Methods[name]
+		hasParams := len(method.In) > 0
+
+		var params []jen.Code
+		var block []jen.Code
+
+		if hasParams {
+			params = []jen.Code{jen.Id("in").Op("*").Id(name + "In")}
+			block = append(block,
+				jen.If(jen.Id("in").Op("==").Nil()).Block(
+					jen.Id("in").Op("=").New(jen.Id(name+"In")),
+				),
+			)
+		}
+
+		block = append(block, jen.Id("out").Op(":=").New(jen.Id(name+"Out")))
+
+		var doArgs []jen.Code
+		doArgs = append(doArgs, jen.Lit(iface.Name+"."+name))
+		if hasParams {
+			doArgs = append(doArgs, jen.Id("in"))
+		} else {
+			doArgs = append(doArgs, jen.Nil())
+		}
+		doArgs = append(doArgs, jen.Id("out"))
+
+		block = append(block,
+			jen.Id("err").Op(":=").Id("c").Dot("Client").Dot("Do").Call(doArgs...),
 			jen.Return().List(
 				jen.Id("out"),
 				jen.Id("unmarshalError").Call(jen.Id("err")),
 			),
 		)
+
+		f.Func().Params(
+			jen.Id("c").Id("Client"),
+		).Id(name).Params(params...).Params(
+			jen.Op("*").Id(name+"Out"),
+			jen.Id("error"),
+		).Block(block...)
 	}
 
 	f.Line()
 
 	var backendMethods []jen.Code
 	for _, name := range methodNames {
-		backendMethods = append(backendMethods, jen.Id(name).Params(
-			jen.Op("*").Id(name+"In"),
-		).Params(
+		method := iface.Methods[name]
+		hasParams := len(method.In) > 0
+
+		var params []jen.Code
+		if hasParams {
+			params = []jen.Code{jen.Op("*").Id(name + "In")}
+		}
+
+		backendMethods = append(backendMethods, jen.Id(name).Params(params...).Params(
 			jen.Op("*").Id(name+"Out"),
 			jen.Id("error"),
 		))
@@ -226,9 +253,15 @@ func main() {
 
 	var methodCases []jen.Code
 	for _, name := range methodNames {
-		methodCases = append(methodCases, jen.Case(jen.Lit(iface.Name+"."+name)).Block(
-			jen.Id("in").Op(":=").New(jen.Id(name+"In")),
-			jen.If(jen.Len(jen.Id("req.Parameters")).Op(">").Lit(0)).Block(
+		method := iface.Methods[name]
+		hasParams := len(method.In) > 0
+
+		var caseBlock []jen.Code
+
+		if hasParams {
+			// Method has parameters - create In struct and unmarshal them
+			caseBlock = append(caseBlock,
+				jen.Id("in").Op(":=").New(jen.Id(name+"In")),
 				jen.If(
 					jen.Id("err").Op(":=").Qual("encoding/json", "Unmarshal").Call(
 						jen.Id("req.Parameters"),
@@ -238,9 +271,18 @@ func main() {
 				).Block(
 					jen.Return().Id("err"),
 				),
-			),
-			jen.List(jen.Id("out"), jen.Id("err")).Op("=").Id("h").Dot("Backend").Dot(name).Call(jen.Id("in")),
-		))
+			)
+			caseBlock = append(caseBlock,
+				jen.List(jen.Id("out"), jen.Id("err")).Op("=").Id("h").Dot("Backend").Dot(name).Call(jen.Id("in")),
+			)
+		} else {
+			// Method has no parameters
+			caseBlock = append(caseBlock,
+				jen.List(jen.Id("out"), jen.Id("err")).Op("=").Id("h").Dot("Backend").Dot(name).Call(),
+			)
+		}
+
+		methodCases = append(methodCases, jen.Case(jen.Lit(iface.Name+"."+name)).Block(caseBlock...))
 	}
 	methodCases = append(methodCases, jen.Default().Block(
 		// TODO: consider using a generated error struct
