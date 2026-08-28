@@ -4,6 +4,7 @@ package stringapi
 
 import (
 	"encoding/json"
+	"errors"
 	govarlink "github.com/emersion/go-varlink"
 )
 
@@ -31,8 +32,8 @@ type Client struct {
 }
 
 func unmarshalError(err error) error {
-	verr, ok := err.(*govarlink.ClientError)
-	if !ok {
+	var verr *govarlink.ClientError
+	if !errors.As(err, &verr) {
 		return err
 	}
 	var v error

@@ -140,8 +140,8 @@ func main() {
 	f.Func().Id("unmarshalError").Params(
 		jen.Id("err").Id("error"),
 	).Id("error").Block(
-		jen.List(jen.Id("verr"), jen.Id("ok")).Op(":=").Id("err").Assert(jen.Op("*").Qual("github.com/emersion/go-varlink", "ClientError")),
-		jen.If(jen.Op("!").Id("ok")).Block(
+		jen.Var().Id("verr").Op("*").Qual("github.com/emersion/go-varlink", "ClientError"),
+		jen.If(jen.Op("!").Qual("errors", "As").Call(jen.Id("err"), jen.Op("&").Id("verr"))).Block(
 			jen.Return().Id("err"),
 		),
 		jen.Var().Id("v").Id("error"),

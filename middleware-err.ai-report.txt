@@ -1,0 +1,63 @@
+BUG:
+
+The Varlink spec defines a client call as follows:
+
+(
+  method: string,
+  parameters: ?object,
+  oneway: ?bool,
+  more: ?bool,
+  upgrade: ?bool
+)
+
+Some Varlink implementations send an empty object as the parameter value, but others (like Python) omit it, causing a server written in this library to cut the connection instead of handling the request.
+
+
+REPRODUCER:
+
+Reproducer
+
+You can see this if you define an empty method, and use varlink/python to call it:
+
+# example/internal/varlink/stringapi/org.example.string.varlink
+method Random() -> (output: string)
+
+// example/main.go
+func (stringBackend) Random(_ *stringapi.RandomIn) (*stringapi.RandomOut, error) {
+	// chosen by a fair dice roll, guaranteed to be random.
+	return &stringapi.RandomOut{Output: "4"}, nil
+}
+
+# example/repro.py
+import varlink
+client = varlink.Client.new_with_address("unix:./org.example.sock")
+with client.open("org.example.string") as conn:
+    ret = conn.Random()
+
+Starting Go server and running Python client produces:
+
+$ go generate ./...
+$ cd example/
+$ go build && ./example &
+$ PID=$!
+$ python3 repro.py
+$ kill $PID
+
+# server output
+2026/01/16 15:53:39 varlink: serving connection: handling call: unexpected end of JSON input
+
+# client output
+Traceback (most recent call last):
+  File "repro.py", line 4, in <module>
+    ret = conn.Random()
+...
+BrokenPipeError: Disconnected
+
+
+
+
+MAINTAINER:
+
+go-varlink ensures that a backwards-compatible Varlink interface change results in a backwards-compatible change for the generated Go code. Adding a new parameter to a method is a backwards-compatible interface change, so it shouldn't result in a backwards-incompatible Go change. So I would say skipping the In struct isn't desirable.
+
+I would say handling missing parameters like an empty parameter list is what we should aim for.
